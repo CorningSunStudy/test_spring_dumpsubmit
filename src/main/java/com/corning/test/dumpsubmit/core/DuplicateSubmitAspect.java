@@ -19,6 +19,7 @@ import java.util.UUID;
 public class DuplicateSubmitAspect {
 
     public static final String DUPLICATE_TOKEN_KEY = "duplicate_token_key";
+    public static final String DUPLICATE_TOKEN_SAVE_TIME_KEY = "duplicate_token_save_time_key";
 
     @Pointcut("execution(public * com.corning.test.dumpsubmit.controller..*.*(..))")
     public void controllerPointCut() {
@@ -34,9 +35,16 @@ public class DuplicateSubmitAspect {
                         HttpSession session = ((HttpServletRequest) request).getSession();
                         if (session.getAttribute(DUPLICATE_TOKEN_KEY) == null) {
                             session.setAttribute(DUPLICATE_TOKEN_KEY, UUID.randomUUID().toString());
+                            session.setAttribute(DUPLICATE_TOKEN_SAVE_TIME_KEY, System.currentTimeMillis());
                             log.debug("方法开始执行，添加token。");
                         } else {
-                            throw new DumplicateSubmitException("请不要重复请求！");
+                            Object oldTime = session.getAttribute(DUPLICATE_TOKEN_SAVE_TIME_KEY);
+                            if (oldTime != null && (System.currentTimeMillis() - Long.parseLong(oldTime.toString()) > token.timeout())) {
+                                session.removeAttribute(DUPLICATE_TOKEN_KEY);
+                                session.removeAttribute(DUPLICATE_TOKEN_SAVE_TIME_KEY);
+                            } else {
+                                throw new DumplicateSubmitException("请不要重复请求！");
+                            }
                         }
                     });
         }
