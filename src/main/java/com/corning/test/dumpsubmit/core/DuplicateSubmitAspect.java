@@ -2,10 +2,7 @@ package com.corning.test.dumpsubmit.core;
 
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
-import org.aspectj.lang.annotation.AfterReturning;
-import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Before;
-import org.aspectj.lang.annotation.Pointcut;
+import org.aspectj.lang.annotation.*;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
@@ -19,7 +16,6 @@ import java.util.UUID;
 public class DuplicateSubmitAspect {
 
     public static final String DUPLICATE_TOKEN_KEY = "duplicate_token_key";
-    public static final String DUPLICATE_TOKEN_SAVE_TIME_KEY = "duplicate_token_save_time_key";
 
     @Pointcut("execution(public * com.corning.test.dumpsubmit.controller..*.*(..))")
     public void controllerPointCut() {
@@ -33,18 +29,12 @@ public class DuplicateSubmitAspect {
                     .findFirst()
                     .ifPresent(request -> {
                         HttpSession session = ((HttpServletRequest) request).getSession();
-                        if (session.getAttribute(DUPLICATE_TOKEN_KEY) == null) {
-                            session.setAttribute(DUPLICATE_TOKEN_KEY, UUID.randomUUID().toString());
-                            session.setAttribute(DUPLICATE_TOKEN_SAVE_TIME_KEY, System.currentTimeMillis());
+                        String key = getDuplicateTokenKey(joinPoint);
+                        if (session.getAttribute(key) == null) {
+                            session.setAttribute(key, UUID.randomUUID().toString());
                             log.debug("方法开始执行，添加token。");
                         } else {
-                            Object oldTime = session.getAttribute(DUPLICATE_TOKEN_SAVE_TIME_KEY);
-                            if (oldTime != null && (System.currentTimeMillis() - Long.parseLong(oldTime.toString()) > token.timeout())) {
-                                session.removeAttribute(DUPLICATE_TOKEN_KEY);
-                                session.removeAttribute(DUPLICATE_TOKEN_SAVE_TIME_KEY);
-                            } else {
-                                throw new DumplicateSubmitException("请不要重复请求！");
-                            }
+                            throw new DumplicateSubmitException("请不要重复请求！");
                         }
                     });
         }
@@ -58,13 +48,54 @@ public class DuplicateSubmitAspect {
                     .findFirst()
                     .ifPresent(request -> {
                         HttpSession session = ((HttpServletRequest) request).getSession(false);
-                        if (session.getAttribute(DUPLICATE_TOKEN_KEY) != null) {
-                            session.removeAttribute(DUPLICATE_TOKEN_KEY);
+                        String key = getDuplicateTokenKey(joinPoint);
+
+                        if (session.getAttribute(key) != null) {
+                            session.removeAttribute(key);
                             log.debug("方法执行完毕移除请求重复标记！");
                         }
                     });
         }
     }
 
+
+    /**
+     * 异常
+     *
+     * @param joinPoint
+     * @param e
+     */
+    @AfterThrowing(pointcut = "controllerPointCut()&& @annotation(token)", throwing = "e")
+    public void doAfterThrowing(JoinPoint joinPoint, Throwable e, DuplicateSubmitToken token) {
+        if (token != null && token.save() && !(e instanceof DumplicateSubmitException)) {
+            // 处理处理重复提交本身之外的异常
+
+            Arrays.stream(joinPoint.getArgs())
+                    .filter(arg -> arg instanceof HttpServletRequest)
+                    .findFirst()
+                    .ifPresent(request -> {
+                        HttpSession session = ((HttpServletRequest) request).getSession(false);
+                        String key = getDuplicateTokenKey(joinPoint);
+
+                        if (session.getAttribute(key) != null) {
+                            session.removeAttribute(key);
+                            log.debug("异常情况--移除请求重复标记！");
+                        }
+                    });
+        }
+    }
+
+    /**
+     * 获取重复提交key-->duplicate_token_key+','+请求方法名
+     *
+     * @param joinPoint
+     * @return
+     */
+    public String getDuplicateTokenKey(JoinPoint joinPoint) {
+        String methodName = joinPoint.getSignature().getName();
+        StringBuilder key = new StringBuilder(DUPLICATE_TOKEN_KEY);
+        key.append(",").append(methodName);
+        return key.toString();
+    }
 
 }

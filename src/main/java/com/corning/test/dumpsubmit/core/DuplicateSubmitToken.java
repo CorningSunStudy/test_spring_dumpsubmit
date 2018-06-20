@@ -12,9 +12,4 @@ public @interface DuplicateSubmitToken {
      */
     boolean save() default true;
 
-    /**
-     * 超时时间：默认5秒
-     */
-    long timeout() default 5000;
-
 }
