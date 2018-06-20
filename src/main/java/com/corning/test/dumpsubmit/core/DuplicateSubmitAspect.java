@@ -65,7 +65,7 @@ public class DuplicateSubmitAspect {
      * @param joinPoint
      * @param e
      */
-    @AfterThrowing(pointcut = "controllerPointCut()&& @annotation(token)", throwing = "e")
+    @AfterThrowing(pointcut = "controllerPointCut() && @annotation(token)", throwing = "e")
     public void doAfterThrowing(JoinPoint joinPoint, DuplicateSubmitToken token, Throwable e) {
         if (token != null && token.save() && !(e instanceof DumplicateSubmitException)) {
             // 处理处理重复提交本身之外的异常
@@ -77,7 +77,7 @@ public class DuplicateSubmitAspect {
                         HttpSession session = ((HttpServletRequest) request).getSession(false);
                         String key = getDuplicateTokenKey(joinPoint);
 
-                        if (session.getAttribute(key) != null) {
+                        if (session.getAttribute(key) != null && token.type() == DuplicateSubmitToken.REQUEST) {
                             session.removeAttribute(key);
                             log.debug("异常情况--移除请求重复标记！");
                         }
