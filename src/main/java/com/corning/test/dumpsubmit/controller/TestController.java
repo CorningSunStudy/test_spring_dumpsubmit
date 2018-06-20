@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 @RequestMapping("/test")
 @RestController
@@ -27,7 +28,13 @@ public class TestController {
 
     @DuplicateSubmitToken
     @GetMapping(value = "/requestUrl2")
-    public Map<String, Object> requestUrl2(HttpServletRequest request) throws InterruptedException {
+    public Map<String, Object> requestUrl2(HttpServletRequest request) throws Exception {
+
+        Random r = new Random();
+        int i = r.nextInt(3);
+        if (i == 2) {
+            throw new Exception("有异常");
+        }
 
         Thread.sleep(5000);
 

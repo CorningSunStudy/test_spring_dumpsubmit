@@ -66,7 +66,7 @@ public class DuplicateSubmitAspect {
      * @param e
      */
     @AfterThrowing(pointcut = "controllerPointCut()&& @annotation(token)", throwing = "e")
-    public void doAfterThrowing(JoinPoint joinPoint, Throwable e, DuplicateSubmitToken token) {
+    public void doAfterThrowing(JoinPoint joinPoint, DuplicateSubmitToken token, Throwable e) {
         if (token != null && token.save() && !(e instanceof DumplicateSubmitException)) {
             // 处理处理重复提交本身之外的异常
 
